@@ -1,15 +1,14 @@
 import cv2
 import time
 import os
+import sys
 import numpy as np
+import argparse
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.externals import joblib
 from keras.models import model_from_json
 from keras import backend as K
-
-threshold = 2
-m_input_size, m_input_size = 96, 96
 
 path = "pictures/"
 if not os.path.exists(path):
@@ -37,9 +36,22 @@ else:
     print("Nothing model folder")
     
     
-def main():
-    camera_width =  352
-    camera_height = 288
+def main(camera_FPS, camera_width, camera_height, inference_scale, threshold):
+
+    base_range = min(camera_width, camera_height)
+    stretch_ratio = inference_scale / base_range
+    resize_image_width = int(camera_width * stretch_ratio)
+    resize_image_height = int(camera_height * stretch_ratio)
+
+    if base_range == camera_height:
+        crop_start_x = (resize_image_width - inference_scale) // 2
+        crop_start_y = 0
+    else:
+        crop_start_x = 0
+        crop_start_y = (resize_image_height - inference_scale) // 2
+    crop_end_x = crop_start_x + inference_scale
+    crop_end_y = crop_start_y + inference_scale
+
     fps = ""
     message = "Push [p] to take a picture"
     result = "Push [s] to start anomaly detection"
@@ -51,7 +63,7 @@ def main():
     mean_NO = 0
 
     cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FPS, 5)
+    cap.set(cv2.CAP_PROP_FPS, camera_FPS)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera_width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_height)
 
@@ -61,24 +73,17 @@ def main():
         t1 = time.time()
 
         ret, image = cap.read()
-        image=image[:,32:320]
+
         if not ret:
             break
 
-        # take a picture
-        if cv2.waitKey(1)&0xFF == ord('p'):
-            cv2.imwrite(path+str(picture_num)+".jpg",image)
-            picture_num += 1
-
-        # calculate score
-        if cv2.waitKey(1)&0xFF == ord('s'):
-            flag_score = True
-            
+        # prediction
         if flag_score == True:
-            img = cv2.resize(image, (m_input_size, m_input_size))
-            img = np.array(img).reshape((1,m_input_size, m_input_size,3))
-            test = model.predict(img/255)
-            test = test.reshape((len(test),-1))
+            prepimg = cv2.resize(image, (resize_image_width, resize_image_height))
+            prepimg = prepimg[crop_start_y:crop_end_y, crop_start_x:crop_end_x]
+            prepimg = np.array(prepimg).reshape((1, inference_scale, inference_scale, 3))
+            test = model.predict(prepimg / 255)
+            test = test.reshape((len(test), -1))
             test = ms.transform(test)
             score = -clf._decision_function(test)
 
@@ -106,11 +111,30 @@ def main():
         elapsedTime = time.time() - t1
         fps = "{:.0f} FPS".format(1/elapsedTime)
 
-        # quit
-        if cv2.waitKey(1)&0xFF == ord('q'):
+        # quit or calculate score or take a picture
+        key = cv2.waitKey(1)&0xFF
+        if key == ord("q"):
             break
+        if key == ord("p"):
+            cv2.imwrite(path + str(picture_num) + ".jpg", image)
+            picture_num += 1
+        if key == ord("s"):
+            flag_score = True
 
     cv2.destroyAllWindows()
     
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-cfps","--camera_FPS",dest="camera_FPS",type=int,default=30,help="USB Camera FPS. (Default=30)")
+    parser.add_argument("-cwd","--camera_width",dest="camera_width",type=int,default=320,help="USB Camera Width. (Default=320)")
+    parser.add_argument("-cht","--camera_height",dest="camera_height",type=int,default=240,help="USB Camera Height. (Default=240)")
+    parser.add_argument("-sc","--inference_scale",dest="inference_scale",type=int,default=96,help="Inference scale. (Default=96)")
+    parser.add_argument("-th","--threshold",dest="threshold",type=int,default=2.0,help="Threshold. (Default=2.0)")
+    args = parser.parse_args()
+    camera_FPS = args.camera_FPS
+    camera_width = args.camera_width
+    camera_height = args.camera_height
+    inference_scale = args.inference_scale
+    threshold = args.threshold
+
+    main(camera_FPS, camera_width, camera_height, inference_scale, threshold)
