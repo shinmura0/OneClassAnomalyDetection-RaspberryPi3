@@ -77,6 +77,8 @@ def main(camera_FPS, camera_width, camera_height, inference_scale, threshold):
         if not ret:
             break
 
+        image_copy = image.copy()
+
         # prediction
         if flag_score == True:
             prepimg = cv2.resize(image, (resize_image_width, resize_image_height))
@@ -116,7 +118,7 @@ def main(camera_FPS, camera_width, camera_height, inference_scale, threshold):
         if key == ord("q"):
             break
         if key == ord("p"):
-            cv2.imwrite(path + str(picture_num) + ".jpg", image)
+            cv2.imwrite(path + str(picture_num) + ".jpg", image_copy)
             picture_num += 1
         if key == ord("s"):
             flag_score = True
