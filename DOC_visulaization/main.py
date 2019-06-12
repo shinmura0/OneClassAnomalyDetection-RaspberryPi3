@@ -86,7 +86,8 @@ def main():
             picture_num += 1
 
         if flag_score == True:
-            img = cv2.resize(image, (m_input_size, m_input_size))
+            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)## 2019.6.12add
+            img = cv2.resize(img, (m_input_size, m_input_size))
             img_ = np.array(img).reshape((1,m_input_size, m_input_size,3))/255
             test = model_doc.predict(img_)
             #test = test.reshape((len(test),-1))
