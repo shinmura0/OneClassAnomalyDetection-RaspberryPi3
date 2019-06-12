@@ -81,7 +81,8 @@ def main(camera_FPS, camera_width, camera_height, inference_scale, threshold):
 
         # prediction
         if flag_score == True:
-            prepimg = cv2.resize(image, (resize_image_width, resize_image_height))
+            prepimg = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)## 2019.6.12add
+            prepimg = cv2.resize(prepimg, (resize_image_width, resize_image_height))
             prepimg = prepimg[crop_start_y:crop_end_y, crop_start_x:crop_end_x]
             prepimg = np.array(prepimg).reshape((1, inference_scale, inference_scale, 3))
             test = model.predict(prepimg / 255)
